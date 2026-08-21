@@ -6,12 +6,15 @@ from app.agent.context import AgentContext
 from app.agent.graph import resume_agent, run_agent
 from app.agent.checkpointer import list_run_checkpoints
 from app.agent.nodes.data_validation import data_validation
+from app.agent.nodes.query_planning import _plan_from_raw, query_planning
 from app.agent.playbooks import DEFAULT_SKILLS
+from app.agent.step_ops import apply_transform
 from app.agent.skill_matcher import match_by_vector
 from app.core.database import connect
 from app.core.errors import BusinessError
 from app.repositories.runs import list_session_runs
 from app.repositories.catalog import ensure_interface_approval_policy
+from app.repositories.skills import get_skill, save_skill
 from app.services.query_gateway import QueryGateway
 from app.services.answer import answer_markdown
 from app.services.llm import extract_json_string_field
@@ -30,6 +33,12 @@ class FakeLlm:
             if "产品" in question or "型号" in question:
                 return {"skillCode": "product.contribution.analysis", "confidence": 0.92, "reason": "产品贡献"}
             return {"skillCode": "risk.impact.analysis", "confidence": 0.9, "reason": "风险商机"}
+        if "Skill 编排器" in system:
+            return {"rationale": "按自然语言流程编译计划", "calls": [
+                {"callId": "queryA", "stepId": "queryA", "action": "interface", "interfaceCode": "biz.unitAchievement.query", "params": {"year": 2026}, "purpose": "查询 A"},
+                {"callId": "topA", "stepId": "topA", "action": "derive", "dependsOn": ["queryA"], "transform": {"operation": "top", "fromStep": "queryA", "by": "incomeAmount", "limit": 3}, "purpose": "筛选 A 的 Top 结果"},
+                {"callId": "queryB", "stepId": "queryB", "action": "interface", "interfaceCode": "biz.productModel.breakdown", "params": {"year": 2026}, "paramSources": {"productLines": {"fromStep": "topA", "path": "rows[].productLine", "unique": True, "limit": 3}}, "dependsOn": ["topA"], "purpose": "用 A 的派生结果查询 B"},
+            ]}
         if "查询规划" in system:
             return {"rationale": "联合分析经营与风险", "calls": [
                 {"callId": "overview", "interfaceCode": "biz.dashboard.summary", "params": {"year": 2026}, "purpose": "经营概览"},
@@ -90,6 +99,89 @@ class AgentGraphTests(unittest.TestCase):
         self.assertTrue(model_lines)
         self.assertTrue(model_lines.issubset(top_lines))
 
+    def test_natural_language_skill_can_be_saved_without_steps(self) -> None:
+        code = "custom.natural.workflow"
+        save_skill(self.conn, code, {
+            "skillCode": code,
+            "skillName": "自然语言流程 Skill",
+            "description": "用自然语言描述接口编排。",
+            "instructions": "先查询 A，再根据 A 的返回值查询 B，最后合并结果形成结论。",
+            "triggerKeywords": ["自然语言流程"],
+            "steps": [],
+            "status": "启用",
+        }, create=True)
+        saved = get_skill(self.conn, code)
+        self.assertEqual(saved["instructions"], "先查询 A，再根据 A 的返回值查询 B，最后合并结果形成结论。")
+        self.assertEqual(saved["steps"], [])
+
+    def test_query_planning_compiles_natural_language_skill(self) -> None:
+        result = query_planning(self.context, {
+            "intent": "business_query",
+            "question": "按自然语言流程分析 A 和 B",
+            "history": [],
+            "entities": {"year": 2026},
+            "matched_skill": {
+                "code": "custom.natural.workflow",
+                "name": "自然语言流程 Skill",
+                "description": "用自然语言描述接口编排。",
+                "instructions": "先查询 A，筛选 Top 结果，再把结果作为条件查询 B。",
+                "triggerKeywords": ["自然语言流程"],
+                "steps": [],
+                "derivedMetrics": [],
+                "answerSections": [],
+            },
+        })
+        calls = result["plan"]["calls"]
+        self.assertEqual([call["stepId"] for call in calls], ["queryA", "topA", "queryB"])
+        self.assertEqual(calls[1]["action"], "derive")
+        self.assertEqual(calls[2]["paramSources"]["productLines"]["fromStep"], "topA")
+
+    def test_query_planning_normalizes_null_optional_fields(self) -> None:
+        plan = _plan_from_raw({"calls": [{
+            "callId": "productLine",
+            "stepId": "productLine",
+            "action": "interface",
+            "interfaceCode": "biz.productLine.analysis",
+            "params": {"year": 2026},
+            "paramSources": None,
+            "transform": None,
+            "dependsOn": None,
+            "purpose": "查询产品线",
+        }]})
+        call = plan.model_dump(by_alias=True)["calls"][0]
+        self.assertEqual(call["paramSources"], {})
+        self.assertEqual(call["transform"], {})
+        self.assertEqual(call["dependsOn"], [])
+
+    def test_merge_rows_transform_combines_multiple_step_outputs(self) -> None:
+        output = apply_transform("mergeABC", {
+            "operation": "mergeRows",
+            "base": {"fromStep": "queryA", "path": "rows", "as": "a"},
+            "joins": [
+                {"fromStep": "queryB", "path": "rows", "as": "b", "type": "left", "on": [["a.orgUnitName", "b.unitName"]]},
+                {"fromStep": "queryC", "path": "rows", "as": "c", "type": "left", "on": [["a.orgUnitName", "c.unitName"]]},
+            ],
+            "select": {
+                "unitName": "a.orgUnitName",
+                "incomeAmount": "a.incomeAmount",
+                "targetAmount": "b.targetAmount",
+                "riskAmount": "c.riskAmount",
+            },
+            "computedFields": {
+                "gapAmount": "targetAmount - incomeAmount",
+                "riskToIncomeRatio": "riskAmount / incomeAmount",
+            },
+            "sortBy": "gapAmount",
+            "order": "desc",
+        }, {
+            "queryA": {"rows": [{"orgUnitName": "华东", "incomeAmount": 80}, {"orgUnitName": "华南", "incomeAmount": 120}]},
+            "queryB": {"rows": [{"unitName": "华东", "targetAmount": 100}, {"unitName": "华南", "targetAmount": 130}]},
+            "queryC": {"rows": [{"unitName": "华东", "riskAmount": 8}, {"unitName": "华南", "riskAmount": 6}]},
+        })
+        self.assertEqual(output["rows"][0]["unitName"], "华东")
+        self.assertEqual(output["rows"][0]["gapAmount"], 20)
+        self.assertEqual(output["rows"][0]["riskToIncomeRatio"], 0.1)
+
     def test_whitelist_rejects_unknown_parameter(self) -> None:
         with self.assertRaises(BusinessError) as caught:
             self.context.gateway.approve("biz.dashboard.summary", {"sql": "DROP TABLE x"})
@@ -121,7 +213,7 @@ class AgentGraphTests(unittest.TestCase):
         cases = {
             "整体经营情况和高风险商机怎么样": "risk.impact.analysis",
             "今年目标完成情况和缺口在哪里": "goal.achievement.diagnosis",
-            "哪些产品线收入占比最高": "product.contribution.analysis",
+            "哪些产品线收入占比最高": "product.top-line.model-drilldown",
             "华东区域今年同比下滑的原因": "revenue.decline.attribution",
             "看看各经营单元的产品结构": "key.unit.drilldown",
         }

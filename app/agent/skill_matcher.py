@@ -26,6 +26,7 @@ def compact_catalog(skills: list[AnalysisSkill]) -> list[dict[str, Any]]:
             "code": skill.code,
             "name": skill.name,
             "description": skill.description,
+            "instructions": skill.instructions[:600] if skill.instructions else "",
             "triggerKeywords": list(skill.trigger_keywords),
         }
         for skill in skills

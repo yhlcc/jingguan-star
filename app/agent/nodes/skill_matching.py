@@ -18,6 +18,7 @@ def skill_matching(context: AgentContext, state: AgentState) -> dict:
             description=item["description"],
             trigger_keywords=tuple(str(kw) for kw in item.get("triggerKeywords", []) if str(kw).strip()),
             steps=(),
+            instructions=str(item.get("instructions") or ""),
         )
         for item in catalog
     ]

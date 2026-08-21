@@ -342,6 +342,7 @@ CREATE TABLE agent_skill (
   skill_code TEXT NOT NULL UNIQUE,
   skill_name TEXT NOT NULL,
   description TEXT,
+  instructions TEXT,
   trigger_keywords TEXT,
   steps_json TEXT NOT NULL,
   derived_metrics_json TEXT,

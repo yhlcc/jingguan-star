@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+import operator
 from collections import defaultdict
 from typing import Any
 
@@ -47,6 +49,8 @@ def apply_transform(step_id: str, transform: dict[str, Any], step_outputs: dict[
         rows = _compute_gap(transform, step_outputs)
     elif operation == "aggregate":
         rows = _aggregate(transform, step_outputs)
+    elif operation == "mergeRows":
+        rows = _merge_rows(transform, step_outputs)
     else:
         raise ValueError(f"不支持的 Skill 派生操作：{operation or '空'}")
     return {
@@ -172,8 +176,67 @@ def _aggregate(transform: dict[str, Any], step_outputs: dict[str, dict[str, Any]
     return output[:_int(transform.get("limit"), len(output))]
 
 
+def _merge_rows(transform: dict[str, Any], step_outputs: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    base = transform.get("base") if isinstance(transform.get("base"), dict) else {}
+    base_alias = str(base.get("as") or "base")
+    contexts = [{base_alias: row} for row in _rows_from_source(base, step_outputs) if isinstance(row, dict)]
+    for join in transform.get("joins", []) if isinstance(transform.get("joins"), list) else []:
+        if not isinstance(join, dict):
+            continue
+        alias = str(join.get("as") or join.get("fromStep") or f"j{len(contexts)}")
+        join_rows = [row for row in _rows_from_source(join, step_outputs) if isinstance(row, dict)]
+        joined_contexts = []
+        for context in contexts:
+            matches = [row for row in join_rows if _join_matches(context, alias, row, join.get("on"))]
+            if matches:
+                joined_contexts.extend({**context, alias: row} for row in matches)
+            elif str(join.get("type") or "left").lower() == "left":
+                joined_contexts.append({**context, alias: {}})
+        contexts = joined_contexts
+    rows = [_project_context(context, transform) for context in contexts]
+    sort_by = str(transform.get("sortBy") or "")
+    if sort_by:
+        reverse = str(transform.get("order") or "desc").lower() != "asc"
+        rows.sort(key=lambda row: _number(row.get(sort_by)), reverse=reverse)
+    return rows[:_int(transform.get("limit"), len(rows))]
+
+
 def _source_rows(transform: dict[str, Any], step_outputs: dict[str, dict[str, Any]]) -> list[Any]:
     return list(read_path(step_outputs.get(str(transform.get("fromStep") or ""), {}), str(transform.get("path") or "rows")) or [])
+
+
+def _rows_from_source(source: dict[str, Any], step_outputs: dict[str, dict[str, Any]]) -> list[Any]:
+    return list(read_path(step_outputs.get(str(source.get("fromStep") or ""), {}), str(source.get("path") or "rows")) or [])
+
+
+def _join_matches(context: dict[str, dict[str, Any]], alias: str, candidate: dict[str, Any], on: Any) -> bool:
+    pairs = on if isinstance(on, list) else []
+    if not pairs:
+        return False
+    candidate_context = {**context, alias: candidate}
+    for pair in pairs:
+        if not isinstance(pair, list) or len(pair) != 2:
+            return False
+        if _context_value(candidate_context, str(pair[0])) != _context_value(candidate_context, str(pair[1])):
+            return False
+    return True
+
+
+def _project_context(context: dict[str, dict[str, Any]], transform: dict[str, Any]) -> dict[str, Any]:
+    select = transform.get("select") if isinstance(transform.get("select"), dict) else {}
+    row = {str(name): _context_value(context, str(expr)) for name, expr in select.items()}
+    computed = transform.get("computedFields") if isinstance(transform.get("computedFields"), dict) else {}
+    for name, expression in computed.items():
+        row[str(name)] = _safe_formula(str(expression), row)
+    return row
+
+
+def _context_value(context: dict[str, dict[str, Any]], expression: str) -> Any:
+    pieces = expression.split(".", 1)
+    if len(pieces) != 2:
+        return None
+    source = context.get(pieces[0], {})
+    return read_path(source, pieces[1])
 
 
 def _infer_columns(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -228,6 +291,36 @@ def _number(value: Any) -> float:
         return float(value or 0)
     except (TypeError, ValueError):
         return 0
+
+
+_FORMULA_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: lambda left, right: left / right if right else 0,
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+
+
+def _safe_formula(expression: str, row: dict[str, Any]) -> float:
+    try:
+        parsed = ast.parse(expression, mode="eval")
+        return round(float(_eval_formula_node(parsed.body, row)), 4)
+    except Exception:
+        return 0
+
+
+def _eval_formula_node(node: ast.AST, row: dict[str, Any]) -> float:
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return float(node.value)
+    if isinstance(node, ast.Name):
+        return _number(row.get(node.id))
+    if isinstance(node, ast.BinOp) and type(node.op) in _FORMULA_OPERATORS:
+        return _FORMULA_OPERATORS[type(node.op)](_eval_formula_node(node.left, row), _eval_formula_node(node.right, row))
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _FORMULA_OPERATORS:
+        return _FORMULA_OPERATORS[type(node.op)](_eval_formula_node(node.operand, row))
+    raise ValueError("unsupported formula")
 
 
 def _int(value: Any, default: int) -> int:

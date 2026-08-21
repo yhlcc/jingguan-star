@@ -10,6 +10,7 @@ from app.repositories.common import dumps, loads
 
 def seed_default_skills(conn: sqlite3.Connection, seed_when_empty: bool = False) -> None:
     created = ensure_skill_table(conn)
+    _remove_retired_skills(conn)
     if not created and not seed_when_empty:
         return
     exists = conn.execute("SELECT 1 FROM agent_skill LIMIT 1").fetchone()
@@ -18,6 +19,13 @@ def seed_default_skills(conn: sqlite3.Connection, seed_when_empty: bool = False)
         return
     for skill in DEFAULT_SKILLS:
         save_skill(conn, skill.code, _default_skill_payload(skill), create=True)
+
+
+def _remove_retired_skills(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "DELETE FROM agent_skill WHERE skill_code IN (?, ?)",
+        ("workflow.a-result-to-b-query", "workflow.abc-merge-calculation"),
+    )
 
 
 def _upgrade_default_skills(conn: sqlite3.Connection) -> None:
@@ -41,6 +49,7 @@ def _default_skill_payload(skill) -> dict[str, Any]:
         "skillCode": skill.code,
         "skillName": skill.name,
         "description": skill.description,
+        "instructions": skill.instructions,
         "triggerKeywords": list(skill.trigger_keywords),
         "steps": [
             {
@@ -66,8 +75,8 @@ def list_skills(conn: sqlite3.Connection, keyword: str | None = None, status: st
     where: list[str] = []
     values: list[Any] = []
     if keyword:
-        where.append("(skill_code LIKE ? OR skill_name LIKE ? OR description LIKE ?)")
-        values.extend([f"%{keyword}%"] * 3)
+        where.append("(skill_code LIKE ? OR skill_name LIKE ? OR description LIKE ? OR instructions LIKE ? OR trigger_keywords LIKE ?)")
+        values.extend([f"%{keyword}%"] * 5)
     if status:
         where.append("status=?")
         values.append(status)
@@ -86,13 +95,14 @@ def enabled_skill_summaries(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Lightweight catalog used for matching: no steps/derived metrics, avoids pulling full skill bodies."""
     seed_default_skills(conn)
     rows = conn.execute(
-        "SELECT skill_code, skill_name, description, trigger_keywords FROM agent_skill WHERE status='启用' ORDER BY id"
+        "SELECT skill_code, skill_name, description, instructions, trigger_keywords FROM agent_skill WHERE status='启用' ORDER BY id"
     ).fetchall()
     return [
         {
             "code": row["skill_code"],
             "name": row["skill_name"],
             "description": row["description"] or "",
+            "instructions": row["instructions"] or "",
             "triggerKeywords": loads(row["trigger_keywords"], []),
         }
         for row in rows
@@ -120,13 +130,15 @@ def save_skill(conn: sqlite3.Connection, code: str, payload: dict[str, Any], cre
     status = str(payload.get("status") or "启用")
     if status not in ("启用", "停用"):
         raise BusinessError("VALIDATION_ERROR", "status 只能为启用或停用")
+    instructions = str(payload.get("instructions") or "").strip()
     trigger_keywords = _string_list(payload.get("triggerKeywords"))
     derived_metrics = _string_list(payload.get("derivedMetrics"))
     answer_sections = _string_list(payload.get("answerSections"))
-    steps = _validate_steps(payload.get("steps"))
+    steps = _validate_steps(payload.get("steps"), allow_empty=bool(instructions))
     values = (
         skill_name,
         str(payload.get("description") or ""),
+        instructions,
         dumps(trigger_keywords),
         dumps(steps),
         dumps(derived_metrics),
@@ -134,12 +146,12 @@ def save_skill(conn: sqlite3.Connection, code: str, payload: dict[str, Any], cre
         status,
     )
     if create:
-        conn.execute("""INSERT INTO agent_skill(skill_code,skill_name,description,trigger_keywords,steps_json,derived_metrics_json,answer_sections_json,status)
-                        VALUES(?,?,?,?,?,?,?,?)""", (code, *values))
+        conn.execute("""INSERT INTO agent_skill(skill_code,skill_name,description,instructions,trigger_keywords,steps_json,derived_metrics_json,answer_sections_json,status)
+                        VALUES(?,?,?,?,?,?,?,?,?)""", (code, *values))
     else:
         if not conn.execute("SELECT 1 FROM agent_skill WHERE skill_code=?", (code,)).fetchone():
             raise BusinessError("NOT_FOUND", "Skill 不存在", 404)
-        conn.execute("""UPDATE agent_skill SET skill_name=?,description=?,trigger_keywords=?,steps_json=?,derived_metrics_json=?,answer_sections_json=?,status=?,updated_at=CURRENT_TIMESTAMP
+        conn.execute("""UPDATE agent_skill SET skill_name=?,description=?,instructions=?,trigger_keywords=?,steps_json=?,derived_metrics_json=?,answer_sections_json=?,status=?,updated_at=CURRENT_TIMESTAMP
                         WHERE skill_code=?""", (*values, code))
     return get_skill(conn, code)
 
@@ -186,6 +198,7 @@ def _item(row: sqlite3.Row, detail: bool) -> dict[str, Any]:
         "skillCode": row["skill_code"],
         "skillName": row["skill_name"],
         "description": row["description"] or "",
+        "instructions": row["instructions"] or "",
         "triggerKeywords": loads(row["trigger_keywords"], []),
         "stepCount": len(steps) if isinstance(steps, list) else 0,
         "status": row["status"],
@@ -208,6 +221,7 @@ def ensure_skill_table(conn: sqlite3.Connection) -> bool:
              skill_code TEXT NOT NULL UNIQUE,
              skill_name TEXT NOT NULL,
              description TEXT,
+             instructions TEXT,
              trigger_keywords TEXT,
              steps_json TEXT NOT NULL,
              derived_metrics_json TEXT,
@@ -218,6 +232,9 @@ def ensure_skill_table(conn: sqlite3.Connection) -> bool:
            )"""
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_skill_status ON agent_skill (status)")
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(agent_skill)").fetchall()}
+    if "instructions" not in columns:
+        conn.execute("ALTER TABLE agent_skill ADD COLUMN instructions TEXT")
     return not bool(existed)
 
 
@@ -226,6 +243,7 @@ def _normalize_import_item(item: dict[str, Any], code: str) -> dict[str, Any]:
         "skillCode": code,
         "skillName": item.get("skillName") or item.get("name") or code,
         "description": item.get("description") or "",
+        "instructions": item.get("instructions") or item.get("workflow") or item.get("process") or "",
         "triggerKeywords": item.get("triggerKeywords") or item.get("trigger_keywords") or [],
         "steps": item.get("steps") or [],
         "derivedMetrics": item.get("derivedMetrics") or item.get("derived_metrics") or [],
@@ -242,8 +260,10 @@ def _string_list(value: Any) -> list[str]:
     return [str(item).strip() for item in value if str(item).strip()]
 
 
-def _validate_steps(value: Any) -> list[dict[str, Any]]:
+def _validate_steps(value: Any, allow_empty: bool = False) -> list[dict[str, Any]]:
     if not isinstance(value, list) or not value:
+        if allow_empty:
+            return []
         raise BusinessError("VALIDATION_ERROR", "Skill 至少需要一个编排步骤")
     steps: list[dict[str, Any]] = []
     seen: set[str] = set()

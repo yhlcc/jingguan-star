@@ -44,6 +44,7 @@ def initialize_database() -> None:
                  skill_code TEXT NOT NULL UNIQUE,
                  skill_name TEXT NOT NULL,
                  description TEXT,
+                 instructions TEXT,
                  trigger_keywords TEXT,
                  steps_json TEXT NOT NULL,
                  derived_metrics_json TEXT,
@@ -54,6 +55,11 @@ def initialize_database() -> None:
                )"""
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_skill_status ON agent_skill (status)")
+        skill_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(agent_skill)").fetchall()
+        }
+        if "instructions" not in skill_columns:
+            conn.execute("ALTER TABLE agent_skill ADD COLUMN instructions TEXT")
         seed_default_skills(conn, seed_when_empty=True)
         ensure_run_table(conn)
         conn.execute(

@@ -25,6 +25,7 @@ class AnalysisSkill:
     description: str
     trigger_keywords: tuple[str, ...]
     steps: tuple[PlaybookStep, ...]
+    instructions: str = ""
     derived_metrics: tuple[str, ...] = ()
     answer_sections: tuple[str, ...] = ()
 
@@ -150,6 +151,45 @@ DEFAULT_SKILLS: tuple[AnalysisSkill, ...] = (
         derived_metrics=("productContribution", "modelShareRate"),
         answer_sections=("产品线贡献", "型号明细", "单元关联", "建议动作"),
     ),
+    AnalysisSkill(
+        code="product.top-line.model-drilldown",
+        name="Top 产品线型号下钻分析",
+        description="用于回答哪些产品线贡献最高、重点产品线下面哪些型号贡献最大、产品结构是否集中等问题。",
+        trigger_keywords=("产品线下钻", "型号下钻", "Top产品线", "产品结构", "型号贡献", "产品线贡献"),
+        steps=(),
+        instructions=(
+            "当用户询问产品线贡献、产品结构集中度、重点产品线下的型号表现时使用。\n"
+            "流程：\n"
+            "1. 先调用 biz.productLine.analysis 查询当年产品线完成金额、对比金额和同比，参数 year 来自用户问题，productLines 可来自用户显式指定的产品线。\n"
+            "2. 增加 derive 步骤，使用 top 操作从 biz.productLine.analysis 的 rows 中按 amount 倒序筛选 Top 3 产品线，字段路径为 rows[].productLine。\n"
+            "3. 再调用 biz.productModel.breakdown，把上一步 Top 产品线通过 paramSources 传给 productLines 参数，dependsOn 指向 Top 产品线派生步骤。\n"
+            "4. 如用户同时提到经营单元或区域，可补充调用 biz.unitAchievement.query 做单元达成背景，但型号下钻必须以产品线 Top 结果为条件。\n"
+            "5. 回答时先说明产品线贡献排名，再说明 Top 产品线下的型号明细、占比和同比变化，最后给出是否存在产品集中风险或增长机会。"
+        ),
+        derived_metrics=("topProductContribution", "modelShareRate", "productConcentration"),
+        answer_sections=("产品线贡献排名", "Top 产品线筛选条件", "型号下钻结果", "结构风险与机会"),
+    ),
+    AnalysisSkill(
+        code="unit.goal-gap.risk-merge-diagnosis",
+        name="经营单元目标缺口与风险敞口诊断",
+        description="用于回答经营单元目标缺口、收入完成、风险商机敞口如何共同影响目标达成的问题。",
+        trigger_keywords=("目标缺口风险", "经营单元风险", "风险敞口", "缺口诊断", "目标风险影响", "单元综合诊断"),
+        steps=(),
+        instructions=(
+            "当用户询问哪些经营单元存在目标缺口、风险商机是否影响达成、缺口和风险需要一起排序诊断时使用。\n"
+            "流程：\n"
+            "1. 调用 biz.unitAchievement.query 查询经营单元收入、目标、完成率和同比，参数 year 来自用户问题，unitNames 来自用户指定的经营单元。\n"
+            "2. 调用 ledger.goal.query 查询经营单元商业目标和商解目标，参数 year 与 unitNames 保持一致。\n"
+            "3. 调用 ledger.pplRisk.summary 查询高风险商机，riskLevels 固定为 [\"高\"]，如用户指定经营单元或阶段则同步传入 unitNames、projectStages。\n"
+            "4. 在三个接口返回后增加 derive 步骤，使用 mergeRows 做经营单元维度合并：以 biz.unitAchievement.query 的 rows 为 base，别名 ua；按 ua.orgUnitName = goal.unitName 关联 ledger.goal.query，按 ua.orgUnitName = risk.unitName 关联 ledger.pplRisk.summary。\n"
+            "5. mergeRows 的 select 至少输出 unitName、incomeAmount、targetAmount、completionRate、commercialTargetAmount、solutionTargetAmount、riskAmount、riskProjectCount。\n"
+            "6. mergeRows 的 computedFields 至少计算 gapAmount = targetAmount - incomeAmount、goalLedgerAmount = commercialTargetAmount + solutionTargetAmount、riskToIncomeRatio = riskAmount / incomeAmount。\n"
+            "7. 合并结果按 gapAmount desc 排序，限制前 20 条；如果用户强调风险优先，则按 riskToIncomeRatio desc 排序。\n"
+            "8. 最终回答必须优先使用合并后的 derive 结果指出“缺口大且风险高”的经营单元，再补充单接口概览和建议动作。"
+        ),
+        derived_metrics=("gapAmount", "goalLedgerAmount", "riskToIncomeRatio", "riskProjectCount"),
+        answer_sections=("目标与收入概览", "缺口和风险合并排名", "重点经营单元诊断", "建议动作"),
+    ),
 )
 
 
@@ -175,6 +215,7 @@ def skill_summary(skill: AnalysisSkill | None) -> dict[str, Any] | None:
         "code": skill.code,
         "name": skill.name,
         "description": skill.description,
+        "instructions": skill.instructions,
         "triggerKeywords": list(skill.trigger_keywords),
         "derivedMetrics": list(skill.derived_metrics),
         "answerSections": list(skill.answer_sections),
@@ -239,6 +280,7 @@ def skill_from_record(record: dict[str, Any]) -> AnalysisSkill:
             if isinstance(item, dict) and item.get("interfaceCode")
             or isinstance(item, dict) and item.get("action") in {"derive", "transform"}
         ),
+        instructions=str(record.get("instructions") or ""),
         derived_metrics=tuple(str(item) for item in record.get("derivedMetrics", []) if str(item).strip()),
         answer_sections=tuple(str(item) for item in record.get("answerSections", []) if str(item).strip()),
     )

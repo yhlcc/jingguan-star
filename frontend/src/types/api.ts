@@ -35,6 +35,7 @@ export interface AgentSkill {
   skillCode: string;
   skillName: string;
   description: string;
+  instructions?: string;
   triggerKeywords: string[];
   stepCount: number;
   status: "启用" | "停用";
