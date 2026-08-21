@@ -1,0 +1,7 @@
+.button { min-height: 40px; border: 0; border-radius: 8px; padding: 8px 16px; font-weight: 600; font-size: 14px; transition: .16s; }
+.button:disabled { opacity: .55; cursor: not-allowed; }
+.button:not(:disabled):hover { transform: translateY(-1px); }
+.primary { color: white; background: var(--primary); box-shadow: 0 2px 6px rgba(47,84,235,.2); }
+.secondary { color: #253a5a; background: #edf2fa; }
+.danger { color: #b82e41; background: #ffeaed; }
+.ghost { color: #52637a; background: transparent; border: 1px solid var(--line); }

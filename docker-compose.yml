@@ -1,0 +1,25 @@
+services:
+  jingguan-star:
+    build:
+      context: .
+    image: jingguan-star:local
+    container_name: jingguan-star
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      DATABASE_PATH: /app/data/jingguan_star.db
+      SEED_DATABASE_PATH: /app/seed/jingguan_star.db
+      CORS_ORIGINS: http://127.0.0.1:8000,http://localhost:8000
+      SERVE_FRONTEND: "true"
+      AGENT_CHECKPOINTER: sqlite
+      AGENT_CHECKPOINT_PATH: /app/data/agent_checkpoints.db
+      AGENT_SKILL_MATCH: auto
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - jingguan-star-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  jingguan-star-data:

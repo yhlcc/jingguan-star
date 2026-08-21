@@ -1,0 +1,11 @@
+.card { background: var(--surface); border: 0; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; min-width: 0; }
+.card > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.card h2 { margin: 0; font-size: 16px; }
+.metric { position: relative; overflow: hidden; }
+.metric::after { content: ""; position: absolute; width: 90px; height: 90px; right: -30px; top: -36px; border-radius: 50%; background: rgba(49,94,251,.08); }
+.metric > span { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
+.metric > strong { display: block; margin: 12px 0 7px; color: var(--ink); font-size: 28px; letter-spacing: -.03em; }
+.metric small { margin-left: 4px; font-size: 12px; font-weight: 500; color: var(--muted); }
+.metric em { font-style: normal; color: #758399; font-size: 11px; }
+.green::before, .amber::before, .red::before, .blue::before { content: ""; position: absolute; left: 0; top: 20px; width: 3px; height: 34px; border-radius: 0 5px 5px 0; }
+.green::before { background: #24a68f; }.amber::before { background: #ed9b32; }.red::before { background: #dc5a64; }.blue::before { background: #315efb; }

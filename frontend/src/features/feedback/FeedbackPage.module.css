@@ -1,0 +1,26 @@
+.row { cursor: pointer; }
+.row:focus { outline: 2px solid #93c5fd; outline-offset: -2px; }
+.snippet { min-width: 220px; max-width: 430px; overflow: hidden; color: var(--text-body); white-space: pre-line; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.feedbackReason { min-width: 180px; max-width: 320px; overflow-wrap: anywhere; white-space: pre-line; }
+.overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(15, 23, 42, .42); backdrop-filter: blur(2px); }
+.dialog { width: min(820px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; border-radius: 14px; background: var(--surface); box-shadow: 0 20px 55px rgba(15, 23, 42, .24); }
+.dialog > header { position: sticky; top: 0; z-index: 1; padding: 17px 22px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); background: var(--surface); }
+.dialog h2 { margin: 0; color: var(--text-primary); font-size: 18px; }
+.close { width: 32px; height: 32px; border: 0; border-radius: 7px; color: var(--text-hint); background: transparent; font-size: 24px; line-height: 1; }
+.close:hover { color: var(--text-primary); background: var(--bg-muted); }
+.dialogBody { padding: 20px 22px; display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 22px; }
+.context { min-width: 0; display: grid; gap: 16px; align-content: start; }
+.context label { display: block; margin-bottom: 6px; color: #6b7280; font-size: 13px; font-weight: 600; }
+.question, .answer, .reason { padding: 11px 13px; border-radius: 8px; color: #374151; background: #f9fafb; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; white-space: pre-line; }
+.answer { border: 1px solid #fde68a; color: #92400e; background: #fff8f0; }
+.reason { border: 1px solid #dbeafe; color: #1e40af; background: #eff6ff; }
+.handleForm { display: grid; gap: 15px; align-content: start; }
+.handleForm textarea { min-height: 180px; }
+.dialog > footer { position: sticky; bottom: 0; padding: 14px 22px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border); background: var(--surface); }
+
+@media (max-width: 720px) {
+  .overlay { padding: 10px; }
+  .dialog { max-height: calc(100vh - 20px); }
+  .dialogBody { grid-template-columns: 1fr; }
+  .handleForm textarea { min-height: 110px; }
+}

@@ -1,0 +1,19 @@
+.overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; background: rgba(15, 23, 42, .42); backdrop-filter: blur(2px); }
+.dialog { width: min(980px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; border-radius: 14px; background: var(--surface); box-shadow: 0 20px 55px rgba(15, 23, 42, .24); }
+.dialog > header { position: sticky; top: 0; z-index: 1; padding: 18px 22px 14px; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.dialog h2 { margin: 0 0 3px; color: var(--text-primary); font-size: 18px; }
+.dialog header p { margin: 0; color: var(--muted); font-size: 13px; }
+.close { width: 32px; height: 32px; flex: 0 0 auto; border: 0; border-radius: 7px; color: var(--text-hint); background: transparent; font-size: 24px; line-height: 1; }
+.close:hover { color: var(--text-primary); background: var(--bg-muted); }
+.dialog form { padding: 20px 22px 0; }
+.dialog form > footer { position: sticky; bottom: 0; margin: 20px -22px 0; padding: 14px 22px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border); background: var(--surface); }
+.specGrid { margin-top: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.codeEditor { min-height: 240px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; line-height: 1.55; }
+.policyBadge { min-height: 24px; padding: 3px 9px; display: inline-flex; align-items: center; border-radius: 999px; color: #526175; background: #eef2f7; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.policyManual { color: #92400e; background: #fef3c7; }
+
+@media (max-width: 720px) {
+  .overlay { padding: 10px; }
+  .dialog { max-height: calc(100vh - 20px); }
+  .specGrid { grid-template-columns: 1fr; }
+}

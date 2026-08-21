@@ -1,0 +1,41 @@
+.page { display: grid; gap: 16px; }
+.breadcrumb { height: 28px; display: flex; align-items: center; gap: 8px; color: var(--text-hint); font-size: 15px; }
+.breadcrumb b { color: var(--text-body); font-weight: 500; }
+.notice { padding: 10px 14px; border: 1px solid #bbf7d0; border-radius: 8px; color: #15803d; background: #f0fdf4; font-size: 14px; }
+.configSurface { padding: 20px; border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+.configGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.configCard { min-height: 142px; padding: 16px 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.cardTop { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.cardTop > strong { flex: 1; min-width: 0; color: var(--text-primary); font-size: 16px; }
+.cardIcon { width: 38px; height: 38px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 10px; font-style: normal; font-weight: 700; }
+.blue { color: #2563eb; background: #e8f0fe; }.amber { color: #d97706; background: #fef3c7; }.violet { color: #7c3aed; background: #f3e8ff; }.orange { color: #d97706; background: #fff7e6; }
+.cardActions { display: flex; align-items: center; gap: 7px; }
+/* .cardActions > button { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; color: var(--text-hint); background: transparent; font-size: 16px; } */
+/* .cardActions > button:hover { color: var(--primary); background: var(--bg-muted); } */
+.configCard p { margin: 0; padding-left: 48px; color: var(--text-hint); font-size: 14px; line-height: 1.6; }
+.toggle { position: relative; width: 36px; height: 20px; flex: 0 0 auto; padding: 0; border: 0; border-radius: 10px; background: var(--border); transition: background .2s; }
+.toggle span { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: white; box-shadow: 0 1px 2px rgba(0,0,0,.12); transition: transform .2s; }
+.toggleOn { background: var(--primary); }.toggleOn span { transform: translateX(16px); }
+.overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px; background: rgba(17,24,39,.32); }
+.modal { width: min(580px, 94vw); max-height: 86vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 16px; background: white; box-shadow: 0 16px 48px rgba(0,0,0,.18); animation: modalIn .18s ease; }
+.modal > header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 0; }
+.modal h2 { margin: 0; color: var(--text-primary); font-size: 18px; }
+.close { width: 32px; height: 32px; border: 0; border-radius: 6px; color: var(--text-hint); background: transparent; font-size: 24px; line-height: 1; }
+.close:hover { color: var(--text-primary); background: var(--bg-muted); }
+.modalBody { flex: 1; overflow-y: auto; padding: 16px 24px 20px; }
+.modal > footer { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 24px 20px; }
+.formGrid { display: grid; gap: 16px; }
+.formGrid small { justify-self: end; color: var(--text-hint); }
+.questionHeader { display: flex; align-items: center; justify-content: space-between; color: var(--text-primary); font-size: 15px; font-weight: 600; }
+.questionHeader button { border: 0; color: var(--primary); background: transparent; font-size: 14px; }
+.questionHeader button:disabled { opacity: .4; cursor: not-allowed; }
+.questions { display: grid; gap: 8px; }
+.questions > div { display: flex; align-items: center; gap: 8px; }
+.questions > div > button { width: 30px; height: 30px; flex: 0 0 auto; border: 0; border-radius: 6px; color: var(--text-hint); background: transparent; font-size: 20px; }
+.questions > div > button:hover { color: #ef4444; background: #fee2e2; }
+.threshold { display: flex; align-items: center; gap: 10px; }.threshold input { width: 100px; }.threshold span { color: var(--text-hint); font-size: 14px; }
+.tip { padding: 12px 14px; border-radius: 8px; color: #6b7280; background: #f9fafb; font-size: 14px; }
+.twoCols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@keyframes modalIn { from { opacity: 0; transform: translateY(8px) scale(.99); } }
+@media (max-width: 1100px) { .configGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .configGrid, .twoCols { grid-template-columns: 1fr; }.configSurface { padding: 12px; }.configCard p { padding-left: 0; }.threshold { align-items: flex-start; flex-direction: column; } }

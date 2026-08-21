@@ -1,0 +1,1 @@
+"""LangGraph business-analysis agent."""

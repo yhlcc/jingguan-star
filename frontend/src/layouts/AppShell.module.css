@@ -1,0 +1,46 @@
+.shell { min-height: 100vh; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-muted); }
+.topbar { height: 56px; min-height: 56px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; background: var(--surface); border-bottom: 1px solid var(--border); z-index: 20; }
+.brand { display: flex; align-items: center; gap: 9px; color: var(--primary); font-size: 15px; letter-spacing: .02em; }
+.brandMark { width: 28px; height: 28px; display: grid; place-items: center; color: white; border-radius: 50%; font: 800 14px Georgia, serif; background: linear-gradient(135deg, #2563eb, #8b5cf6); box-shadow: 0 3px 8px rgba(47,84,235,.24); }
+.topActions { display: flex; align-items: center; gap: 10px; color: var(--text-body); font-size: 14px; }
+.topActions button { position: relative; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; color: var(--text-hint); background: transparent; }
+.topActions button:hover { color: var(--text-body); background: var(--bg-muted); }
+.topActions button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.topActions button i { position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border: 2px solid white; border-radius: 50%; background: var(--danger); }
+.topActions b { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--primary); font-size: 14px; }
+.body { flex: 1; min-height: 0; display: flex; }
+.sidebar { width: 224px; min-width: 224px; height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); border-right: 1px solid var(--border); transition: width .25s ease, min-width .25s ease; }
+.nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+.nav a, .groupButton { width: calc(100% - 16px); height: 48px; margin: 0 8px; padding: 0 16px; display: flex; align-items: center; gap: 12px; border: 0; border-radius: 6px; color: var(--text-body); background: transparent; font-size: 16px; font-weight: 500; text-align: left; transition: color .15s, background .15s; }
+.nav a:hover, .groupButton:hover { color: var(--text-primary); background: var(--bg-muted); }
+.nav a.active { color: white; font-weight: 600; background: var(--primary); }
+.nav svg { width: 18px; height: 18px; flex: 0 0 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.groupButton.groupActive:not(:hover) { color: var(--primary); }
+.groupButton span, .nav a span { flex: 1; white-space: nowrap; }
+.chevron { width: 16px; height: 16px; display: grid; place-items: center; opacity: .55; transition: transform .2s; }
+.chevron svg { width: 14px; height: 14px; }
+.chevronOpen { transform: rotate(90deg); }
+.submenu { max-height: 0; overflow: hidden; transition: max-height .25s ease; }
+.submenuOpen { max-height: 180px; }
+.submenu a { height: 40px; padding-left: 36px; font-size: 15px; font-weight: 400; }
+.submenu a svg { width: 15px; height: 15px; flex-basis: 15px; }
+.sidebarFooter { padding: 8px 12px; display: flex; justify-content: flex-end; border-top: 1px solid var(--border); }
+.sidebarFooter button { width: 34px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 6px; color: var(--text-hint); background: transparent; }
+.sidebarFooter button:hover { color: var(--text-primary); background: var(--bg-muted); }
+.sidebarFooter svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .25s; }
+.shellCollapsed .sidebar { width: 60px; min-width: 60px; }
+.shellCollapsed .nav a, .shellCollapsed .groupButton { width: calc(100% - 8px); margin: 0 4px; padding: 0; justify-content: center; }
+.shellCollapsed .nav span, .shellCollapsed .chevron, .shellCollapsed .submenu { display: none; }
+.shellCollapsed .sidebarFooter { justify-content: center; padding-inline: 4px; }
+.shellCollapsed .sidebarFooter svg { transform: rotate(180deg); }
+.main { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; background: var(--bg-muted); }
+.content { width: 100%; max-width: 1600px; min-width: 0; min-height: 100%; margin: 0 auto; padding: 20px 24px 40px; }
+.assistantContent { max-width: none; height: 100%; padding: 0; overflow: hidden; }
+@media (max-width: 800px) {
+  .sidebar { width: 60px; min-width: 60px; }
+  .nav a, .groupButton { width: calc(100% - 8px); margin: 0 4px; padding: 0; justify-content: center; }
+  .nav span, .chevron, .submenu, .sidebarFooter { display: none; }
+  .content { padding: 16px; }
+  .assistantContent { padding: 0; }
+  .topActions > span { display: none; }
+}

@@ -1,0 +1,16 @@
+.git
+.agents
+.codex
+__pycache__/
+*.py[cod]
+.venv/
+frontend/node_modules/
+frontend/dist/
+.DS_Store
+.env
+.env.*
+data/*.db
+data/*.db-*
+!data/jingguan_star.db
+Dockerfile
+docker-compose.yml
